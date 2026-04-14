@@ -1,0 +1,71 @@
+[app]
+video_source = "local"
+hide_config = true
+pexels_api_keys = [ "5h5x3uxgSYMmfXYMm8qnQw1oWK1hmcrXifAYQ9erq9NnIXLnkBdzP81v",]
+pixabay_api_keys = []
+llm_provider = "pollinations"
+g4f_model_name = "gpt-4o-mini"
+pollinations_api_key = ""
+pollinations_base_url = "https://text.pollinations.ai/openai"
+pollinations_model_name = "openai-fast"
+ollama_base_url = ""
+ollama_model_name = ""
+openai_api_key = ""
+openai_base_url = ""
+openai_model_name = "gpt-4o-mini"
+moonshot_api_key = ""
+moonshot_base_url = "https://api.moonshot.cn/v1"
+moonshot_model_name = "moonshot-v1-8k"
+oneapi_api_key = ""
+oneapi_base_url = ""
+oneapi_model_name = ""
+azure_api_key = ""
+azure_base_url = ""
+azure_model_name = "gpt-35-turbo"
+azure_api_version = "2024-02-15-preview"
+gemini_api_key = ""
+gemini_model_name = "gemini-2.5-flash"
+qwen_api_key = ""
+qwen_model_name = "qwen-max"
+minimax_api_key = ""
+minimax_base_url = "https://api.minimax.io/v1"
+minimax_model_name = "MiniMax-M2.7"
+deepseek_api_key = ""
+deepseek_base_url = "https://api.deepseek.com"
+deepseek_model_name = "deepseek-chat"
+modelscope_api_key = ""
+modelscope_base_url = "https://api-inference.modelscope.cn/v1/"
+modelscope_model_name = "Qwen/Qwen3-32B"
+subtitle_provider = "edge"
+endpoint = ""
+material_directory = ""
+enable_redis = false
+redis_host = "localhost"
+redis_port = 6379
+redis_db = 0
+redis_password = ""
+max_concurrent_tasks = 5
+
+[whisper]
+model_size = "large-v3"
+device = "CPU"
+compute_type = "int8"
+
+[proxy]
+
+[azure]
+speech_key = ""
+speech_region = ""
+
+[siliconflow]
+api_key = ""
+
+[ui]
+hide_log = false
+language = "pt"
+tts_server = "azure-tts-v1"
+voice_name = "pt-BR-FranciscaNeural-Female"
+font_name = "MicrosoftYaHeiBold.ttc"
+subtitle_position = "bottom"
+text_fore_color = "#FFFFFF"
+font_size = 60

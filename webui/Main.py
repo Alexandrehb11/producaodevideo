@@ -230,18 +230,6 @@ if not config.app.get("hide_config", False):
         with middle_config_panel:
             st.write(tr("LLM Settings"))
             llm_providers = [
-                "OpenAI",
-                "Moonshot",
-                "Azure",
-                "Qwen",
-                "DeepSeek",
-                "ModelScope",
-                "Gemini",
-                "Ollama",
-                "G4f",
-                "OneAPI",
-                "Cloudflare",
-                "ERNIE",
                 "Pollinations",
             ]
             saved_llm_provider = config.app.get("llm_provider", "OpenAI").lower()
