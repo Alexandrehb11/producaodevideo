@@ -66,6 +66,7 @@
     "Video Script and Subject Cannot Both Be Empty": "O Tema do Vídeo e o Roteiro do Vídeo não podem estar ambos vazios",
     "Generating Video": "Gerando vídeo, por favor aguarde...",
     "Start Generating Video": "Começar a Gerar Vídeo",
+    "Download Video": "Baixar Vídeo",
     "Video Generation Completed": "Geração do Vídeo Concluída",
     "Video Generation Failed": "Falha na Geração do Vídeo",
     "You can download the generated video from the following links": "Você pode baixar o vídeo gerado a partir dos seguintes links",

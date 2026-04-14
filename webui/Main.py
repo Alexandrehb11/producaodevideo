@@ -1083,6 +1083,24 @@ if start_button:
     except Exception:
         pass
 
+    if video_files:
+        st.markdown("---")
+        download_cols = st.columns(len(video_files))
+        for i, video_path in enumerate(video_files):
+            try:
+                with open(video_path, "rb") as f:
+                    video_bytes = f.read()
+                filename = os.path.basename(video_path)
+                download_cols[i].download_button(
+                    label=f"⬇️ {tr('Download Video')} {i + 1 if len(video_files) > 1 else ''}".strip(),
+                    data=video_bytes,
+                    file_name=filename,
+                    mime="video/mp4",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                logger.warning(f"Could not prepare download for {video_path}: {e}")
+
     open_task_folder(task_id)
     logger.info(tr("Video Generation Completed"))
     scroll_to_bottom()

@@ -66,6 +66,7 @@
     "Video Script and Subject Cannot Both Be Empty": "Video Konusu ve Video Senaryosu aynı anda boş olamaz",
     "Generating Video": "Video oluşturuluyor, lütfen bekleyin...",
     "Start Generating Video": "Video Oluşturmaya Başla",
+    "Download Video": "Videoyu İndir",
     "Video Generation Completed": "Video Oluşturma Tamamlandı",
     "Video Generation Failed": "Video Oluşturma Başarısız",
     "You can download the generated video from the following links": "Oluşturulan videoyu aşağıdaki bağlantılardan indirebilirsiniz",

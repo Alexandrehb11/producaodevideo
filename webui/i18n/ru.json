@@ -66,6 +66,7 @@
     "Video Script and Subject Cannot Both Be Empty": "Тема и сценарий видео не могут быть пустыми одновременно",
     "Generating Video": "Создание видео, пожалуйста подождите...",
     "Start Generating Video": "Начать создание видео",
+    "Download Video": "Скачать видео",
     "Video Generation Completed": "Создание видео завершено",
     "Video Generation Failed": "Ошибка создания видео",
     "You can download the generated video from the following links": "Вы можете скачать созданное видео по следующим ссылкам",

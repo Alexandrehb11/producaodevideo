@@ -66,6 +66,7 @@
     "Video Script and Subject Cannot Both Be Empty": "视频主题 和 视频文案，不能同时为空",
     "Generating Video": "正在生成视频，请稍候...",
     "Start Generating Video": "开始生成视频",
+    "Download Video": "下载视频",
     "Video Generation Completed": "视频生成完成",
     "Video Generation Failed": "视频生成失败",
     "You can download the generated video from the following links": "你可以从以下链接下载生成的视频",
