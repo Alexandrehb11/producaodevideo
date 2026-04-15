@@ -110,6 +110,7 @@ support_locales = [
     "de-DE",
     "en-US",
     "fr-FR",
+    "pt-BR",
     "vi-VN",
     "th-TH",
     "tr-TR",
