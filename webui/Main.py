@@ -28,16 +28,14 @@ from app.services import task as tm
 from app.utils import utils
 
 st.set_page_config(
-    page_title="MoneyPrinterTurbo",
+    page_title="Impressora de Dinheiro",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="auto",
     menu_items={
-        "Report a bug": "https://github.com/harry0703/MoneyPrinterTurbo/issues",
-        "About": "# MoneyPrinterTurbo\nSimply provide a topic or keyword for a video, and it will "
-        "automatically generate the video copy, video materials, video subtitles, "
-        "and video background music before synthesizing a high-definition short "
-        "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
+        "About": "# Impressora de Dinheiro V1.00\nForneça um tema ou palavra-chave para o vídeo e ele irá "
+        "gerar automaticamente o roteiro, os materiais, as legendas e a música de fundo, "
+        "sintetizando um vídeo curto em alta definição.",
     },
 )
 
@@ -99,7 +97,7 @@ locales = utils.load_locales(i18n_dir)
 title_col, lang_col = st.columns([3, 1])
 
 with title_col:
-    st.title(f"MoneyPrinterTurbo v{config.project_version}")
+    st.title("Impressora de Dinheiro V1.00")
 
 with lang_col:
     display_languages = []
