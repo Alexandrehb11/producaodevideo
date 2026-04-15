@@ -1,4 +1,6 @@
 [app]
+project_name = "Impressora de Dinheiro"
+project_version = "1.00"
 video_source = "pexels"
 hide_config = true
 pexels_api_keys = [ "5h5x3uxgSYMmfXYMm8qnQw1oWK1hmcrXifAYQ9erq9NnIXLnkBdzP81v",]
