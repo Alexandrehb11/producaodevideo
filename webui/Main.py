@@ -2,6 +2,8 @@ import json
 import os
 import platform
 import sys
+import threading
+import time
 from uuid import uuid4
 
 import streamlit as st
@@ -16,6 +18,7 @@ if root_dir not in sys.path:
     print("")
 
 from app.config import config
+from app.models import const
 from app.models.schema import (
     MaterialInfo,
     VideoAspect,
@@ -24,6 +27,7 @@ from app.models.schema import (
     VideoTransitionMode,
 )
 from app.services import llm, voice
+from app.services import state as sm
 from app.services import task as tm
 from app.utils import utils
 
@@ -68,6 +72,8 @@ if "ui_language" not in st.session_state:
 if "local_video_materials" not in st.session_state:
     # 记住用户最近一次已经落盘的本地素材，避免仅修改文案后二次生成时丢失素材列表。
     st.session_state["local_video_materials"] = []
+if "running_task_id" not in st.session_state:
+    st.session_state["running_task_id"] = None
 _LAST_RESULT_FILE = os.path.join(root_dir, "storage", "last_result.json")
 
 if "last_video_result" not in st.session_state:
@@ -1008,8 +1014,14 @@ with right_panel:
                     config.save_config()
                     st.success(tr("Pixabay API Key deleted successfully"))
 
-start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
-if start_button:
+_is_task_running = st.session_state.get("running_task_id") is not None
+start_button = st.button(
+    tr("Generate Video"),
+    use_container_width=True,
+    type="primary",
+    disabled=_is_task_running,
+)
+if start_button and not _is_task_running:
     config.save_config()
     task_id = str(uuid4())
     if not params.video_script or not params.video_script.strip():
@@ -1065,32 +1077,71 @@ if start_button:
             if m.url:
                 params.video_materials.append(m)
 
-    status_container = st.empty()
-    status_container.info("⏳ Processando...")
-    scroll_to_bottom()
-
     logger.info(tr("Start Generating Video"))
     logger.info(utils.to_json(params))
 
-    result = tm.start(task_id=task_id, params=params)
-    if not result or "videos" not in result:
-        status_container.error("❌ " + tr("Video Generation Failed"))
-        logger.error(tr("Video Generation Failed"))
-        scroll_to_bottom()
-        st.stop()
+    # Lança a geração em background — continua mesmo se o usuário sair da aba
+    def _run_task_in_background(tid, p):
+        try:
+            tm.start(task_id=tid, params=p)
+        except Exception as exc:
+            logger.error(f"background task {tid} crashed: {exc}")
+            sm.state.update_task(tid, state=const.TASK_STATE_FAILED)
 
-    status_container.success("✅ Concluído!")
-    st.session_state["last_video_result"] = result
-    st.session_state["last_task_id"] = task_id
-    # Persiste o resultado em disco para sobreviver a refresh e troca de aba
-    try:
-        with open(_LAST_RESULT_FILE, "w", encoding="utf-8") as _f:
-            json.dump({"result": result, "task_id": task_id}, _f)
-    except Exception:
-        pass
-    open_task_folder(task_id)
-    logger.info(tr("Video Generation Completed"))
-    scroll_to_bottom()
+    _bg_thread = threading.Thread(
+        target=_run_task_in_background,
+        args=(task_id, params),
+        daemon=False,  # daemon=False garante que a thread termina mesmo sem sessão ativa
+    )
+    _bg_thread.start()
+
+    st.session_state["running_task_id"] = task_id
+    st.rerun()
+
+# Polling: exibe progresso enquanto a task de background está rodando
+if st.session_state.get("running_task_id"):
+    _running_id = st.session_state["running_task_id"]
+    _task_info = sm.state.get_task(_running_id)
+    _task_state = (_task_info or {}).get("state", const.TASK_STATE_PROCESSING)
+    _task_progress = (_task_info or {}).get("progress", 0)
+
+    if _task_state == const.TASK_STATE_COMPLETE:
+        _result = {
+            "videos": _task_info.get("videos", []),
+            "combined_videos": _task_info.get("combined_videos", []),
+            "script": _task_info.get("script", ""),
+            "terms": _task_info.get("terms", ""),
+            "audio_file": _task_info.get("audio_file", ""),
+            "audio_duration": _task_info.get("audio_duration", 0),
+            "subtitle_path": _task_info.get("subtitle_path", ""),
+            "materials": _task_info.get("materials", []),
+            "cross_post_results": _task_info.get("cross_post_results"),
+        }
+        st.session_state["last_video_result"] = _result
+        st.session_state["last_task_id"] = _running_id
+        st.session_state["running_task_id"] = None
+        try:
+            with open(_LAST_RESULT_FILE, "w", encoding="utf-8") as _f:
+                json.dump({"result": _result, "task_id": _running_id}, _f)
+        except Exception:
+            pass
+        open_task_folder(_running_id)
+        logger.info(tr("Video Generation Completed"))
+        st.rerun()
+
+    elif _task_state == const.TASK_STATE_FAILED:
+        st.error("❌ " + tr("Video Generation Failed"))
+        logger.error(tr("Video Generation Failed"))
+        st.session_state["running_task_id"] = None
+        scroll_to_bottom()
+
+    else:
+        # Ainda processando — mostra barra de progresso e reagenda rerun
+        st.info(f"⏳ Processando... {int(_task_progress)}%")
+        st.progress(int(_task_progress) / 100)
+        scroll_to_bottom()
+        time.sleep(2)
+        st.rerun()
 
 # Exibe o resultado do último vídeo gerado (persiste entre re-execuções do Streamlit)
 if st.session_state.get("last_video_result"):
