@@ -74,6 +74,8 @@ if "local_video_materials" not in st.session_state:
     st.session_state["local_video_materials"] = []
 _LAST_RESULT_FILE = os.path.join(root_dir, "storage", "last_result.json")
 _RUNNING_TASK_FILE = os.path.join(root_dir, "storage", "running_task.json")
+_VIDEO_HISTORY_FILE = os.path.join(root_dir, "storage", "video_history.json")
+_VIDEO_HISTORY_MAX = 2
 
 if "running_task_id" not in st.session_state:
     # Tenta restaurar uma task em andamento que sobreviveu a um page refresh
@@ -98,25 +100,22 @@ if "running_task_id" not in st.session_state:
         pass
     st.session_state["running_task_id"] = _restored_running_id
 
-if "last_video_result" not in st.session_state:
-    # Tenta restaurar o último resultado gerado do arquivo persistente
+if "video_history" not in st.session_state:
+    # Restaura histórico dos últimos vídeos gerados do arquivo persistente
     try:
-        if os.path.exists(_LAST_RESULT_FILE):
-            with open(_LAST_RESULT_FILE, "r", encoding="utf-8") as _f:
-                _saved = json.load(_f)
-            _videos = _saved.get("result", {}).get("videos", [])
-            if _videos and all(os.path.exists(v) for v in _videos):
-                st.session_state["last_video_result"] = _saved["result"]
-                st.session_state["last_task_id"] = _saved.get("task_id")
-            else:
-                st.session_state["last_video_result"] = None
-                st.session_state["last_task_id"] = None
+        if os.path.exists(_VIDEO_HISTORY_FILE):
+            with open(_VIDEO_HISTORY_FILE, "r", encoding="utf-8") as _f:
+                _saved_history = json.load(_f)
+            # Filtra entradas cujos arquivos ainda existem no disco
+            _valid_history = [
+                entry for entry in _saved_history
+                if entry.get("videos") and all(os.path.exists(v) for v in entry["videos"])
+            ]
+            st.session_state["video_history"] = _valid_history[:_VIDEO_HISTORY_MAX]
         else:
-            st.session_state["last_video_result"] = None
-            st.session_state["last_task_id"] = None
+            st.session_state["video_history"] = []
     except Exception:
-        st.session_state["last_video_result"] = None
-        st.session_state["last_task_id"] = None
+        st.session_state["video_history"] = []
 
 # 加载语言文件
 locales = utils.load_locales(i18n_dir)
@@ -1118,13 +1117,6 @@ if start_button and not _is_task_running:
     _bg_thread.start()
 
     st.session_state["running_task_id"] = task_id
-    # Limpa o resultado anterior para não mostrar enquanto o novo é gerado
-    st.session_state["last_video_result"] = None
-    st.session_state["last_task_id"] = None
-    try:
-        os.remove(_LAST_RESULT_FILE)
-    except Exception:
-        pass
     # Persiste o task_id para sobreviver a page refresh
     try:
         os.makedirs(os.path.dirname(_RUNNING_TASK_FILE), exist_ok=True)
@@ -1134,35 +1126,38 @@ if start_button and not _is_task_running:
         pass
     st.rerun()
 
-# Exibe o resultado do último vídeo gerado (persiste enquanto novo vídeo é produzido)
-if st.session_state.get("last_video_result"):
-    _result = st.session_state["last_video_result"]
-    _task_id = st.session_state["last_task_id"]
-    video_files = _result.get("videos", [])
-    if video_files:
-        st.success("✅ Concluído!")
-        try:
-            player_cols = st.columns(len(video_files) * 2 + 1)
-            for i, url in enumerate(video_files):
-                player_cols[i * 2 + 1].video(url)
-        except Exception:
-            pass
-        st.markdown("---")
-        download_cols = st.columns(len(video_files))
-        for i, video_path in enumerate(video_files):
-            try:
-                with open(video_path, "rb") as f:
-                    video_bytes = f.read()
-                filename = os.path.basename(video_path)
-                download_cols[i].download_button(
-                    label=f"⬇️ {tr('Download Video')} {i + 1 if len(video_files) > 1 else ''}".strip(),
-                    data=video_bytes,
-                    file_name=filename,
-                    mime="video/mp4",
-                    use_container_width=True,
-                )
-            except Exception as e:
-                logger.warning(f"Could not prepare download for {video_path}: {e}")
+# Exibe histórico dos últimos vídeos gerados (persiste entre gerações)
+_video_history = st.session_state.get("video_history", [])
+if _video_history:
+    st.markdown("### 🎬 Últimos vídeos gerados")
+    for _hi, _entry in enumerate(_video_history):
+        _label = "🥇 Último vídeo" if _hi == 0 else f"⏮️ Vídeo anterior ({_hi})"
+        with st.expander(_label, expanded=(_hi == 0)):
+            _video_files = _entry.get("videos", [])
+            if _video_files:
+                try:
+                    _player_cols = st.columns(len(_video_files) * 2 + 1)
+                    for _vi, _url in enumerate(_video_files):
+                        _player_cols[_vi * 2 + 1].video(_url)
+                except Exception:
+                    pass
+                _dl_cols = st.columns(len(_video_files))
+                for _vi, _video_path in enumerate(_video_files):
+                    try:
+                        with open(_video_path, "rb") as _vf:
+                            _video_bytes = _vf.read()
+                        _filename = os.path.basename(_video_path)
+                        _dl_cols[_vi].download_button(
+                            label=f"⬇️ Download {_vi + 1 if len(_video_files) > 1 else ''}".strip(),
+                            data=_video_bytes,
+                            file_name=_filename,
+                            mime="video/mp4",
+                            use_container_width=True,
+                            key=f"dl_{_entry.get('task_id', _hi)}_{_vi}",
+                        )
+                    except Exception as _e:
+                        logger.warning(f"Could not prepare download for {_video_path}: {_e}")
+    st.markdown("---")
 
 # Polling: exibe progresso enquanto a task de background está rodando
 if st.session_state.get("running_task_id"):
@@ -1183,16 +1178,20 @@ if st.session_state.get("running_task_id"):
             "materials": _task_info.get("materials", []),
             "cross_post_results": _task_info.get("cross_post_results"),
         }
-        st.session_state["last_video_result"] = _result
-        st.session_state["last_task_id"] = _running_id
+        # Adiciona ao histórico (mantém os últimos _VIDEO_HISTORY_MAX)
+        _new_entry = {**_result, "task_id": _running_id}
+        _history = st.session_state.get("video_history", [])
+        _history = [_new_entry] + [e for e in _history if e.get("task_id") != _running_id]
+        _history = _history[:_VIDEO_HISTORY_MAX]
+        st.session_state["video_history"] = _history
         st.session_state["running_task_id"] = None
         try:
             os.remove(_RUNNING_TASK_FILE)
         except Exception:
             pass
         try:
-            with open(_LAST_RESULT_FILE, "w", encoding="utf-8") as _f:
-                json.dump({"result": _result, "task_id": _running_id}, _f)
+            with open(_VIDEO_HISTORY_FILE, "w", encoding="utf-8") as _f:
+                json.dump(_history, _f)
         except Exception:
             pass
         open_task_folder(_running_id)
