@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import sys
@@ -69,10 +70,27 @@ if "ui_language" not in st.session_state:
 if "local_video_materials" not in st.session_state:
     # 记住用户最近一次已经落盘的本地素材，避免仅修改文案后二次生成时丢失素材列表。
     st.session_state["local_video_materials"] = []
+_LAST_RESULT_FILE = os.path.join(root_dir, "storage", "last_result.json")
+
 if "last_video_result" not in st.session_state:
-    st.session_state["last_video_result"] = None
-if "last_task_id" not in st.session_state:
-    st.session_state["last_task_id"] = None
+    # Tenta restaurar o último resultado gerado do arquivo persistente
+    try:
+        if os.path.exists(_LAST_RESULT_FILE):
+            with open(_LAST_RESULT_FILE, "r", encoding="utf-8") as _f:
+                _saved = json.load(_f)
+            _videos = _saved.get("result", {}).get("videos", [])
+            if _videos and all(os.path.exists(v) for v in _videos):
+                st.session_state["last_video_result"] = _saved["result"]
+                st.session_state["last_task_id"] = _saved.get("task_id")
+            else:
+                st.session_state["last_video_result"] = None
+                st.session_state["last_task_id"] = None
+        else:
+            st.session_state["last_video_result"] = None
+            st.session_state["last_task_id"] = None
+    except Exception:
+        st.session_state["last_video_result"] = None
+        st.session_state["last_task_id"] = None
 
 # 加载语言文件
 locales = utils.load_locales(i18n_dir)
@@ -1066,6 +1084,12 @@ if start_button:
     status_container.success("✅ Concluído!")
     st.session_state["last_video_result"] = result
     st.session_state["last_task_id"] = task_id
+    # Persiste o resultado em disco para sobreviver a refresh e troca de aba
+    try:
+        with open(_LAST_RESULT_FILE, "w", encoding="utf-8") as _f:
+            json.dump({"result": result, "task_id": task_id}, _f)
+    except Exception:
+        pass
     open_task_folder(task_id)
     logger.info(tr("Video Generation Completed"))
     scroll_to_bottom()
