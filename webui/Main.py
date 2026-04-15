@@ -69,6 +69,10 @@ if "ui_language" not in st.session_state:
 if "local_video_materials" not in st.session_state:
     # 记住用户最近一次已经落盘的本地素材，避免仅修改文案后二次生成时丢失素材列表。
     st.session_state["local_video_materials"] = []
+if "last_video_result" not in st.session_state:
+    st.session_state["last_video_result"] = None
+if "last_task_id" not in st.session_state:
+    st.session_state["last_task_id"] = None
 
 # 加载语言文件
 locales = utils.load_locales(i18n_dir)
@@ -219,11 +223,6 @@ if not config.app.get("hide_config", False):
             )
             config.app["hide_config"] = hide_config
 
-            # 是否禁用日志显示
-            hide_log = st.checkbox(
-                tr("Hide Log"), value=config.ui.get("hide_log", False)
-            )
-            config.ui["hide_log"] = hide_log
 
         # 中间面板 - LLM 设置
 
@@ -1049,41 +1048,40 @@ if start_button:
             if m.url:
                 params.video_materials.append(m)
 
-    log_container = st.empty()
-    log_records = []
+    status_container = st.empty()
+    status_container.info("⏳ Processando...")
+    scroll_to_bottom()
 
-    def log_received(msg):
-        if config.ui["hide_log"]:
-            return
-        with log_container:
-            log_records.append(msg)
-            st.code("\n".join(log_records))
-
-    logger.add(log_received)
-
-    st.toast(tr("Generating Video"))
     logger.info(tr("Start Generating Video"))
     logger.info(utils.to_json(params))
-    scroll_to_bottom()
 
     result = tm.start(task_id=task_id, params=params)
     if not result or "videos" not in result:
-        st.error(tr("Video Generation Failed"))
+        status_container.error("❌ " + tr("Video Generation Failed"))
         logger.error(tr("Video Generation Failed"))
         scroll_to_bottom()
         st.stop()
 
-    video_files = result.get("videos", [])
-    st.success(tr("Video Generation Completed"))
-    try:
-        if video_files:
+    status_container.success("✅ Concluído!")
+    st.session_state["last_video_result"] = result
+    st.session_state["last_task_id"] = task_id
+    open_task_folder(task_id)
+    logger.info(tr("Video Generation Completed"))
+    scroll_to_bottom()
+
+# Exibe o resultado do último vídeo gerado (persiste entre re-execuções do Streamlit)
+if st.session_state.get("last_video_result"):
+    _result = st.session_state["last_video_result"]
+    _task_id = st.session_state["last_task_id"]
+    video_files = _result.get("videos", [])
+    if video_files:
+        st.success("✅ Concluído!")
+        try:
             player_cols = st.columns(len(video_files) * 2 + 1)
             for i, url in enumerate(video_files):
                 player_cols[i * 2 + 1].video(url)
-    except Exception:
-        pass
-
-    if video_files:
+        except Exception:
+            pass
         st.markdown("---")
         download_cols = st.columns(len(video_files))
         for i, video_path in enumerate(video_files):
@@ -1100,9 +1098,5 @@ if start_button:
                 )
             except Exception as e:
                 logger.warning(f"Could not prepare download for {video_path}: {e}")
-
-    open_task_folder(task_id)
-    logger.info(tr("Video Generation Completed"))
-    scroll_to_bottom()
 
 config.save_config()
