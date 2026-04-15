@@ -1,5 +1,5 @@
 [app]
-video_source = "local"
+video_source = "pexels"
 hide_config = true
 pexels_api_keys = [ "5h5x3uxgSYMmfXYMm8qnQw1oWK1hmcrXifAYQ9erq9NnIXLnkBdzP81v",]
 pixabay_api_keys = []
