@@ -995,8 +995,8 @@ start_button = st.button(tr("Generate Video"), use_container_width=True, type="p
 if start_button:
     config.save_config()
     task_id = str(uuid4())
-    if not params.video_subject and not params.video_script:
-        st.error(tr("Video Script and Subject Cannot Both Be Empty"))
+    if not params.video_script or not params.video_script.strip():
+        st.error("⚠️ O roteiro do vídeo não pode estar vazio. Por favor, preencha o roteiro antes de gerar.")
         scroll_to_bottom()
         st.stop()
 
