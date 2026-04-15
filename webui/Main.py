@@ -1127,6 +1127,36 @@ if start_button and not _is_task_running:
         pass
     st.rerun()
 
+# Exibe o resultado do último vídeo gerado (persiste enquanto novo vídeo é produzido)
+if st.session_state.get("last_video_result"):
+    _result = st.session_state["last_video_result"]
+    _task_id = st.session_state["last_task_id"]
+    video_files = _result.get("videos", [])
+    if video_files:
+        st.success("✅ Concluído!")
+        try:
+            player_cols = st.columns(len(video_files) * 2 + 1)
+            for i, url in enumerate(video_files):
+                player_cols[i * 2 + 1].video(url)
+        except Exception:
+            pass
+        st.markdown("---")
+        download_cols = st.columns(len(video_files))
+        for i, video_path in enumerate(video_files):
+            try:
+                with open(video_path, "rb") as f:
+                    video_bytes = f.read()
+                filename = os.path.basename(video_path)
+                download_cols[i].download_button(
+                    label=f"⬇️ {tr('Download Video')} {i + 1 if len(video_files) > 1 else ''}".strip(),
+                    data=video_bytes,
+                    file_name=filename,
+                    mime="video/mp4",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                logger.warning(f"Could not prepare download for {video_path}: {e}")
+
 # Polling: exibe progresso enquanto a task de background está rodando
 if st.session_state.get("running_task_id"):
     _running_id = st.session_state["running_task_id"]
@@ -1179,35 +1209,5 @@ if st.session_state.get("running_task_id"):
         scroll_to_bottom()
         time.sleep(2)
         st.rerun()
-
-# Exibe o resultado do último vídeo gerado (persiste entre re-execuções do Streamlit)
-if st.session_state.get("last_video_result"):
-    _result = st.session_state["last_video_result"]
-    _task_id = st.session_state["last_task_id"]
-    video_files = _result.get("videos", [])
-    if video_files:
-        st.success("✅ Concluído!")
-        try:
-            player_cols = st.columns(len(video_files) * 2 + 1)
-            for i, url in enumerate(video_files):
-                player_cols[i * 2 + 1].video(url)
-        except Exception:
-            pass
-        st.markdown("---")
-        download_cols = st.columns(len(video_files))
-        for i, video_path in enumerate(video_files):
-            try:
-                with open(video_path, "rb") as f:
-                    video_bytes = f.read()
-                filename = os.path.basename(video_path)
-                download_cols[i].download_button(
-                    label=f"⬇️ {tr('Download Video')} {i + 1 if len(video_files) > 1 else ''}".strip(),
-                    data=video_bytes,
-                    file_name=filename,
-                    mime="video/mp4",
-                    use_container_width=True,
-                )
-            except Exception as e:
-                logger.warning(f"Could not prepare download for {video_path}: {e}")
 
 config.save_config()
