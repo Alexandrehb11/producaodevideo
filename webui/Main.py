@@ -1104,10 +1104,34 @@ if start_button and not _is_task_running:
     # Lança a geração em background — continua mesmo se o usuário sair da aba
     def _run_task_in_background(tid, p):
         try:
-            tm.start(task_id=tid, params=p)
+            result = tm.start(task_id=tid, params=p)
+            # Salva no histórico de vídeos assim que termina — independente da UI estar aberta
+            if result and result.get("videos"):
+                try:
+                    _entry = {**result, "task_id": tid}
+                    _hist = []
+                    if os.path.exists(_VIDEO_HISTORY_FILE):
+                        with open(_VIDEO_HISTORY_FILE, "r", encoding="utf-8") as _hf:
+                            _hist = json.load(_hf)
+                    _hist = [_entry] + [e for e in _hist if e.get("task_id") != tid]
+                    _hist = _hist[:_VIDEO_HISTORY_MAX]
+                    os.makedirs(os.path.dirname(_VIDEO_HISTORY_FILE), exist_ok=True)
+                    with open(_VIDEO_HISTORY_FILE, "w", encoding="utf-8") as _hf:
+                        json.dump(_hist, _hf)
+                except Exception as _he:
+                    logger.error(f"Erro ao salvar video_history: {_he}")
+            # Remove o arquivo de task em andamento
+            try:
+                os.remove(_RUNNING_TASK_FILE)
+            except Exception:
+                pass
         except Exception as exc:
             logger.error(f"background task {tid} crashed: {exc}")
             sm.state.update_task(tid, state=const.TASK_STATE_FAILED)
+            try:
+                os.remove(_RUNNING_TASK_FILE)
+            except Exception:
+                pass
 
     _bg_thread = threading.Thread(
         target=_run_task_in_background,
@@ -1178,22 +1202,17 @@ if st.session_state.get("running_task_id"):
             "materials": _task_info.get("materials", []),
             "cross_post_results": _task_info.get("cross_post_results"),
         }
-        # Adiciona ao histórico (mantém os últimos _VIDEO_HISTORY_MAX)
-        _new_entry = {**_result, "task_id": _running_id}
-        _history = st.session_state.get("video_history", [])
-        _history = [_new_entry] + [e for e in _history if e.get("task_id") != _running_id]
-        _history = _history[:_VIDEO_HISTORY_MAX]
-        st.session_state["video_history"] = _history
+        # A thread de background já salvou o video_history.json — só sincroniza o session_state
+        try:
+            with open(_VIDEO_HISTORY_FILE, "r", encoding="utf-8") as _f:
+                st.session_state["video_history"] = json.load(_f)[:_VIDEO_HISTORY_MAX]
+        except Exception:
+            # Fallback: monta o histórico a partir do task_info
+            _new_entry = {**_result, "task_id": _running_id}
+            _history = st.session_state.get("video_history", [])
+            _history = [_new_entry] + [e for e in _history if e.get("task_id") != _running_id]
+            st.session_state["video_history"] = _history[:_VIDEO_HISTORY_MAX]
         st.session_state["running_task_id"] = None
-        try:
-            os.remove(_RUNNING_TASK_FILE)
-        except Exception:
-            pass
-        try:
-            with open(_VIDEO_HISTORY_FILE, "w", encoding="utf-8") as _f:
-                json.dump(_history, _f)
-        except Exception:
-            pass
         open_task_folder(_running_id)
         logger.info(tr("Video Generation Completed"))
         st.rerun()
@@ -1202,10 +1221,6 @@ if st.session_state.get("running_task_id"):
         st.error("❌ " + tr("Video Generation Failed"))
         logger.error(tr("Video Generation Failed"))
         st.session_state["running_task_id"] = None
-        try:
-            os.remove(_RUNNING_TASK_FILE)
-        except Exception:
-            pass
         scroll_to_bottom()
 
     else:
