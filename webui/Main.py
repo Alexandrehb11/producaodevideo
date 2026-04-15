@@ -72,9 +72,31 @@ if "ui_language" not in st.session_state:
 if "local_video_materials" not in st.session_state:
     # 记住用户最近一次已经落盘的本地素材，避免仅修改文案后二次生成时丢失素材列表。
     st.session_state["local_video_materials"] = []
-if "running_task_id" not in st.session_state:
-    st.session_state["running_task_id"] = None
 _LAST_RESULT_FILE = os.path.join(root_dir, "storage", "last_result.json")
+_RUNNING_TASK_FILE = os.path.join(root_dir, "storage", "running_task.json")
+
+if "running_task_id" not in st.session_state:
+    # Tenta restaurar uma task em andamento que sobreviveu a um page refresh
+    _restored_running_id = None
+    try:
+        if os.path.exists(_RUNNING_TASK_FILE):
+            with open(_RUNNING_TASK_FILE, "r", encoding="utf-8") as _f:
+                _rt = json.load(_f)
+            _candidate_id = _rt.get("task_id")
+            if _candidate_id:
+                _task_info = sm.state.get_task(_candidate_id)
+                _task_st = (_task_info or {}).get("state")
+                if _task_st == const.TASK_STATE_PROCESSING:
+                    _restored_running_id = _candidate_id
+                else:
+                    # Task já terminou — limpa o arquivo
+                    try:
+                        os.remove(_RUNNING_TASK_FILE)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+    st.session_state["running_task_id"] = _restored_running_id
 
 if "last_video_result" not in st.session_state:
     # Tenta restaurar o último resultado gerado do arquivo persistente
@@ -1096,6 +1118,13 @@ if start_button and not _is_task_running:
     _bg_thread.start()
 
     st.session_state["running_task_id"] = task_id
+    # Persiste o task_id para sobreviver a page refresh
+    try:
+        os.makedirs(os.path.dirname(_RUNNING_TASK_FILE), exist_ok=True)
+        with open(_RUNNING_TASK_FILE, "w", encoding="utf-8") as _f:
+            json.dump({"task_id": task_id}, _f)
+    except Exception:
+        pass
     st.rerun()
 
 # Polling: exibe progresso enquanto a task de background está rodando
@@ -1121,6 +1150,10 @@ if st.session_state.get("running_task_id"):
         st.session_state["last_task_id"] = _running_id
         st.session_state["running_task_id"] = None
         try:
+            os.remove(_RUNNING_TASK_FILE)
+        except Exception:
+            pass
+        try:
             with open(_LAST_RESULT_FILE, "w", encoding="utf-8") as _f:
                 json.dump({"result": _result, "task_id": _running_id}, _f)
         except Exception:
@@ -1133,6 +1166,10 @@ if st.session_state.get("running_task_id"):
         st.error("❌ " + tr("Video Generation Failed"))
         logger.error(tr("Video Generation Failed"))
         st.session_state["running_task_id"] = None
+        try:
+            os.remove(_RUNNING_TASK_FILE)
+        except Exception:
+            pass
         scroll_to_bottom()
 
     else:
