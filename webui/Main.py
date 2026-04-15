@@ -1118,6 +1118,13 @@ if start_button and not _is_task_running:
     _bg_thread.start()
 
     st.session_state["running_task_id"] = task_id
+    # Limpa o resultado anterior para não mostrar enquanto o novo é gerado
+    st.session_state["last_video_result"] = None
+    st.session_state["last_task_id"] = None
+    try:
+        os.remove(_LAST_RESULT_FILE)
+    except Exception:
+        pass
     # Persiste o task_id para sobreviver a page refresh
     try:
         os.makedirs(os.path.dirname(_RUNNING_TASK_FILE), exist_ok=True)
